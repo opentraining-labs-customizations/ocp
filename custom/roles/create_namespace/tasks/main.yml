@@ -31,7 +31,7 @@
   when:
     - create_namespace_display_name | length > 0 or create_namespace_description | length > 0
 
-- name: Grant admin access to sandbox service account
+- name: Grant admin access to sandbox service account via RoleBinding
   kubernetes.core.k8s:
     state: present
     host: "{{ create_namespace_ocp_api_url }}"
@@ -54,10 +54,33 @@
   when:
     - create_namespace_grant_admin_to_sa | length > 0
 
-- name: Display RoleBinding info for debugging
+- name: Grant cluster-admin for virtualmachines to sandbox service account
+  kubernetes.core.k8s:
+    state: present
+    host: "{{ create_namespace_ocp_api_url }}"
+    api_key: "{{ create_namespace_ocp_api_token }}"
+    validate_certs: "{{ create_namespace_ocp_validate_certs }}"
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: "sandbox-cnv-admin-{{ create_namespace_name }}"
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: cluster-admin
+      subjects:
+        - kind: ServiceAccount
+          name: "{{ create_namespace_grant_admin_sa_name }}"
+          namespace: "{{ create_namespace_grant_admin_to_sa }}"
+  when:
+    - create_namespace_grant_admin_to_sa | length > 0
+
+- name: Display RBAC info for debugging
   ansible.builtin.debug:
     msg:
       - "Created RoleBinding 'sandbox-admin' in namespace {{ create_namespace_name }}"
+      - "Created ClusterRoleBinding 'sandbox-cnv-admin-{{ create_namespace_name }}'"
       - "Granted admin ClusterRole to ServiceAccount {{ create_namespace_grant_admin_sa_name }} in namespace {{ create_namespace_grant_admin_to_sa }}"
   when:
     - create_namespace_grant_admin_to_sa | length > 0
