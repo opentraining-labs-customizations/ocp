@@ -84,3 +84,10 @@
       - "Granted admin ClusterRole to ServiceAccount {{ create_namespace_grant_admin_sa_name }} in namespace {{ create_namespace_grant_admin_to_sa }}"
   when:
     - create_namespace_grant_admin_to_sa | length > 0
+
+- name: Wait for RBAC permissions to propagate
+  ansible.builtin.pause:
+    seconds: 10
+    prompt: "Waiting 10 seconds for RBAC permissions to propagate through the cluster..."
+  when:
+    - create_namespace_grant_admin_to_sa | length > 0
