@@ -1,0 +1,18 @@
+---
+# Default variables for create_namespace role
+
+# Namespace configuration
+create_namespace_name: ""
+create_namespace_display_name: ""
+create_namespace_description: ""
+
+# OpenShift cluster connection details
+# These default to the standard cluster admin credentials
+create_namespace_ocp_api_url: "{{ openshift_api_url | default(openshift_api_server_url) }}"
+create_namespace_ocp_api_token: "{{ openshift_cluster_admin_token }}"
+create_namespace_ocp_validate_certs: false
+
+# Service account to grant admin access to the namespace
+# Default to sandbox service account
+create_namespace_grant_admin_to_sa: "{{ sandbox_openshift_namespace | default('') }}"
+create_namespace_grant_admin_sa_name: "sandbox"
