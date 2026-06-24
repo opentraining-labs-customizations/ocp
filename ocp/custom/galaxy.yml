@@ -5,6 +5,7 @@ version: 1.0.0
 readme: README.md
 authors:
   - Amrinder Singh <amrsingh@redhat.com>
+  - Claude Sonnet 4.5 <noreply@anthropic.com>
 description: Custom OpenShift utilities collection for namespace management
 license:
   - GPL-2.0-or-later
@@ -12,3 +13,4 @@ tags:
   - openshift
   - kubernetes
   - namespace
+build_ignore: []
