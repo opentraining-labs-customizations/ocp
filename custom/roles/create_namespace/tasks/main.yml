@@ -54,6 +54,29 @@
   when:
     - create_namespace_grant_admin_to_sa | length > 0
 
+- name: Grant edit role for sandbox service account (for KubeVirt resources)
+  kubernetes.core.k8s:
+    state: present
+    host: "{{ create_namespace_ocp_api_url }}"
+    api_key: "{{ create_namespace_ocp_api_token }}"
+    validate_certs: "{{ create_namespace_ocp_validate_certs }}"
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: "sandbox-edit"
+        namespace: "{{ create_namespace_name }}"
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: edit
+      subjects:
+        - kind: ServiceAccount
+          name: "{{ create_namespace_grant_admin_sa_name }}"
+          namespace: "{{ create_namespace_grant_admin_to_sa }}"
+  when:
+    - create_namespace_grant_admin_to_sa | length > 0
+
 - name: Grant cluster-admin for virtualmachines to sandbox service account
   kubernetes.core.k8s:
     state: present
@@ -87,7 +110,21 @@
 
 - name: Wait for RBAC permissions to propagate
   ansible.builtin.pause:
-    seconds: 10
-    prompt: "Waiting 10 seconds for RBAC permissions to propagate through the cluster..."
+    seconds: 120
+    prompt: "Waiting 2 minutes for RBAC permissions to propagate through the cluster..."
+  when:
+    - create_namespace_grant_admin_to_sa | length > 0
+
+- name: Verify sandbox SA can create virtualmachines
+  kubernetes.core.k8s_info:
+    api_version: rbac.authorization.k8s.io/v1
+    kind: SelfSubjectAccessReview
+    host: "{{ create_namespace_ocp_api_url }}"
+    api_key: "{{ create_namespace_ocp_api_token }}"
+    validate_certs: "{{ create_namespace_ocp_validate_certs }}"
+  register: access_review
+  until: access_review is succeeded
+  retries: 6
+  delay: 5
   when:
     - create_namespace_grant_admin_to_sa | length > 0
