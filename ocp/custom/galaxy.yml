@@ -1,0 +1,14 @@
+---
+namespace: ocp
+name: custom
+version: 1.0.0
+readme: README.md
+authors:
+  - Amrinder Singh <amrsingh@redhat.com>
+description: Custom OpenShift utilities collection for namespace management
+license:
+  - GPL-2.0-or-later
+tags:
+  - openshift
+  - kubernetes
+  - namespace
