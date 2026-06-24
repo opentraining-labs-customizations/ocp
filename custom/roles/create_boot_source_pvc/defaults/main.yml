@@ -11,8 +11,8 @@ boot_source_create_namespace: true
 boot_source_namespace_display_name: "CNV Boot Images"
 boot_source_namespace_description: "Namespace for storing CNV/KubeVirt boot source PVCs"
 
-# Default storage class (empty = cluster default)
-boot_source_storage_class: ""
+# Default storage class (null = use cluster default, or specify a storage class name)
+boot_source_storage_class: null
 
 # Default access modes
 boot_source_default_access_modes:

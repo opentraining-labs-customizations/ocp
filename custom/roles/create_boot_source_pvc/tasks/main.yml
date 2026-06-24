@@ -35,7 +35,8 @@
     - boot_source_create_namespace | bool
     - boot_source_namespace_display_name | length > 0 or boot_source_namespace_description | length > 0
 
-- name: Create boot source PVCs from DataSources
+- name: Create boot source PVCs from DataSources (with storage class)
+  when: (item.storage_class | default(boot_source_storage_class)) is not none
   kubernetes.core.k8s:
     state: present
     host: "{{ boot_source_ocp_api_url }}"
@@ -53,7 +54,7 @@
       spec:
         accessModes: "{{ item.access_modes | default(boot_source_default_access_modes) }}"
         volumeMode: "{{ item.volume_mode | default(boot_source_default_volume_mode) }}"
-        storageClassName: "{{ item.storage_class | default(boot_source_storage_class) | default(omit) }}"
+        storageClassName: "{{ item.storage_class | default(boot_source_storage_class) }}"
         resources:
           requests:
             storage: "{{ item.storage | default(boot_source_default_storage) }}"
@@ -64,14 +65,45 @@
   loop: "{{ boot_source_pvcs }}"
   loop_control:
     label: "{{ item.name }}"
-  register: r_boot_source_pvcs
+  register: r_boot_source_pvcs_with_class
+
+- name: Create boot source PVCs from DataSources (without storage class - use default)
+  when: (item.storage_class | default(boot_source_storage_class)) is none
+  kubernetes.core.k8s:
+    state: present
+    host: "{{ boot_source_ocp_api_url }}"
+    api_key: "{{ boot_source_ocp_api_token }}"
+    validate_certs: "{{ boot_source_ocp_validate_certs }}"
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: "{{ item.name }}"
+        namespace: "{{ boot_source_pvc_namespace }}"
+        labels:
+          app: boot-source
+          datasource: "{{ item.datasource_name }}"
+      spec:
+        accessModes: "{{ item.access_modes | default(boot_source_default_access_modes) }}"
+        volumeMode: "{{ item.volume_mode | default(boot_source_default_volume_mode) }}"
+        resources:
+          requests:
+            storage: "{{ item.storage | default(boot_source_default_storage) }}"
+        dataSourceRef:
+          kind: DataSource
+          name: "{{ item.datasource_name }}"
+          namespace: "{{ item.datasource_namespace | default(boot_source_default_datasource_namespace) }}"
+  loop: "{{ boot_source_pvcs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: r_boot_source_pvcs_without_class
 
 - name: Display created PVCs
   ansible.builtin.debug:
     msg:
       - "Created boot source PVCs in namespace: {{ boot_source_pvc_namespace }}"
       - "PVCs: {{ boot_source_pvcs | map(attribute='name') | list | join(', ') }}"
-  when: r_boot_source_pvcs is changed
+  when: r_boot_source_pvcs_with_class is changed or r_boot_source_pvcs_without_class is changed
 
 - name: Wait for PVCs to be bound (optional)
   kubernetes.core.k8s_info:
