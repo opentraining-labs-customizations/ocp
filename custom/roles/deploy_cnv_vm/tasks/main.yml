@@ -80,6 +80,8 @@
                   chpasswd:
                     expire: false
                   ssh_pwauth: true
+                  hostname: {{ item.name }}
+                  fqdn: {{ item.name }}.headless.{{ deploy_cnv_vm_namespace }}.svc.cluster.local
               name: cloudinitdisk
   loop: "{{ deploy_cnv_vm_instances }}"
   loop_control:
@@ -156,6 +158,8 @@
                   chpasswd:
                     expire: false
                   ssh_pwauth: true
+                  hostname: {{ item.name }}
+                  fqdn: {{ item.name }}.headless.{{ deploy_cnv_vm_namespace }}.svc.cluster.local
               name: cloudinitdisk
   loop: "{{ deploy_cnv_vm_instances }}"
   loop_control:
