@@ -196,12 +196,11 @@
   retries: "{{ (deploy_cnv_vm_wait_timeout | int / deploy_cnv_vm_wait_delay | int) | int }}"
   delay: "{{ deploy_cnv_vm_wait_delay }}"
 
-- name: Set agnosticv_user_info facts for VM access
-  agnosticd_user_info:
-    data:
-      "{{ item.name | replace('-', '_') }}_internal_fqdn": "{{ item.name }}.headless.{{ deploy_cnv_vm_namespace }}.svc.cluster.local"
-      "{{ item.name | replace('-', '_') }}_vm_name": "{{ item.name }}"
-      "{{ item.name | replace('-', '_') }}_namespace": "{{ deploy_cnv_vm_namespace }}"
+- name: Set VM facts for catalog consumption
+  ansible.builtin.set_fact:
+    "{{ item.name | replace('-', '_') }}_internal_fqdn": "{{ item.name }}.headless.{{ deploy_cnv_vm_namespace }}.svc.cluster.local"
+    "{{ item.name | replace('-', '_') }}_vm_name": "{{ item.name }}"
+    "{{ item.name | replace('-', '_') }}_namespace": "{{ deploy_cnv_vm_namespace }}"
   loop: "{{ deploy_cnv_vm_instances }}"
   loop_control:
     label: "{{ item.name }}"
