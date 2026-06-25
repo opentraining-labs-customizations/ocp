@@ -1,0 +1,71 @@
+---
+# Create boot source PVCs (optional - for cnv_instances compatibility)
+
+- name: Create cnv-images namespace for boot PVCs
+  when: deploy_cnv_vm_create_boot_pvcs | bool
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Namespace
+    name: "{{ deploy_cnv_vm_boot_pvc_namespace }}"
+    state: present
+
+- name: Create boot source PVCs with storage class
+  when:
+    - deploy_cnv_vm_create_boot_pvcs | bool
+    - (item.storage_class | default(deploy_cnv_vm_storage_class)) is not none
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: "{{ item.name }}"
+        namespace: "{{ deploy_cnv_vm_boot_pvc_namespace }}"
+        labels:
+          app: boot-source
+          datasource: "{{ item.datasource_name }}"
+      spec:
+        accessModes:
+          - ReadWriteMany
+        volumeMode: Block
+        storageClassName: "{{ item.storage_class | default(deploy_cnv_vm_storage_class) }}"
+        resources:
+          requests:
+            storage: "{{ item.storage }}"
+        dataSourceRef:
+          kind: DataSource
+          name: "{{ item.datasource_name }}"
+          namespace: "{{ item.datasource_namespace | default('openshift-virtualization-os-images') }}"
+  loop: "{{ deploy_cnv_vm_boot_pvcs }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create boot source PVCs without storage class (use cluster default)
+  when:
+    - deploy_cnv_vm_create_boot_pvcs | bool
+    - (item.storage_class | default(deploy_cnv_vm_storage_class)) is none
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: "{{ item.name }}"
+        namespace: "{{ deploy_cnv_vm_boot_pvc_namespace }}"
+        labels:
+          app: boot-source
+          datasource: "{{ item.datasource_name }}"
+      spec:
+        accessModes:
+          - ReadWriteMany
+        volumeMode: Block
+        resources:
+          requests:
+            storage: "{{ item.storage }}"
+        dataSourceRef:
+          kind: DataSource
+          name: "{{ item.datasource_name }}"
+          namespace: "{{ item.datasource_namespace | default('openshift-virtualization-os-images') }}"
+  loop: "{{ deploy_cnv_vm_boot_pvcs }}"
+  loop_control:
+    label: "{{ item.name }}"

@@ -1,0 +1,201 @@
+---
+
+- name: Create boot source PVCs (optional)
+  ansible.builtin.include_tasks: create_boot_pvcs.yml
+# Tasks for deploy_cnv_vm role
+
+- name: Validate deploy_cnv_vm_instances is defined
+  ansible.builtin.fail:
+    msg: "deploy_cnv_vm_instances must be defined and contain at least one VM"
+  when: deploy_cnv_vm_instances | length == 0
+
+- name: Deploy VirtualMachines from DataSources (with storage class)
+  when: (item.storage_class | default(deploy_cnv_vm_storage_class)) is not none
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: kubevirt.io/v1
+      kind: VirtualMachine
+      metadata:
+        name: "{{ item.name }}"
+        namespace: "{{ deploy_cnv_vm_namespace }}"
+        labels:
+          app: "{{ item.name }}"
+      spec:
+        runStrategy: Always
+        dataVolumeTemplates:
+        - metadata:
+            name: "{{ item.name }}-disk"
+          spec:
+            pvc:
+              accessModes:
+              - ReadWriteMany
+              resources:
+                requests:
+                  storage: "{{ item.disk_size | default(deploy_cnv_vm_default_disk_size) }}"
+              volumeMode: Block
+              storageClassName: "{{ item.storage_class | default(deploy_cnv_vm_storage_class) }}"
+            sourceRef:
+              kind: DataSource
+              name: "{{ item.datasource_name }}"
+              namespace: "{{ item.datasource_namespace | default('openshift-virtualization-os-images') }}"
+        template:
+          metadata:
+            labels:
+              kubevirt.io/vm: "{{ item.name }}"
+          spec:
+            domain:
+              cpu:
+                cores: "{{ item.cores | default(deploy_cnv_vm_default_cores) }}"
+                model: host-passthrough
+              devices:
+                disks:
+                - disk:
+                    bus: "{{ item.disk_bus | default(deploy_cnv_vm_default_disk_bus) }}"
+                  name: datavolumedisk
+                - disk:
+                    bus: virtio
+                  name: cloudinitdisk
+                interfaces:
+                - masquerade: {}
+                  model: "{{ item.network_model | default(deploy_cnv_vm_default_network_model) }}"
+                  name: default
+              machine:
+                type: "{{ item.machine_type | default(deploy_cnv_vm_default_machine_type) }}"
+              memory:
+                guest: "{{ item.memory | default(deploy_cnv_vm_default_memory) }}"
+              resources: {}
+            networks:
+            - name: default
+              pod: {}
+            volumes:
+            - dataVolume:
+                name: "{{ item.name }}-disk"
+              name: datavolumedisk
+            - cloudInitNoCloud:
+                userData: |
+                  #cloud-config
+                  user: {{ item.cloud_init_user | default('cloud-user') }}
+                  password: "{{ item.cloud_init_password | default('changeme') }}"
+                  chpasswd:
+                    expire: false
+                  ssh_pwauth: true
+              name: cloudinitdisk
+  loop: "{{ deploy_cnv_vm_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: r_vms_with_class
+
+- name: Deploy VirtualMachines from DataSources (use default storage class)
+  when: (item.storage_class | default(deploy_cnv_vm_storage_class)) is none
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: kubevirt.io/v1
+      kind: VirtualMachine
+      metadata:
+        name: "{{ item.name }}"
+        namespace: "{{ deploy_cnv_vm_namespace }}"
+        labels:
+          app: "{{ item.name }}"
+      spec:
+        runStrategy: Always
+        dataVolumeTemplates:
+        - metadata:
+            name: "{{ item.name }}-disk"
+          spec:
+            pvc:
+              accessModes:
+              - ReadWriteMany
+              resources:
+                requests:
+                  storage: "{{ item.disk_size | default(deploy_cnv_vm_default_disk_size) }}"
+              volumeMode: Block
+            sourceRef:
+              kind: DataSource
+              name: "{{ item.datasource_name }}"
+              namespace: "{{ item.datasource_namespace | default('openshift-virtualization-os-images') }}"
+        template:
+          metadata:
+            labels:
+              kubevirt.io/vm: "{{ item.name }}"
+          spec:
+            domain:
+              cpu:
+                cores: "{{ item.cores | default(deploy_cnv_vm_default_cores) }}"
+                model: host-passthrough
+              devices:
+                disks:
+                - disk:
+                    bus: "{{ item.disk_bus | default(deploy_cnv_vm_default_disk_bus) }}"
+                  name: datavolumedisk
+                - disk:
+                    bus: virtio
+                  name: cloudinitdisk
+                interfaces:
+                - masquerade: {}
+                  model: "{{ item.network_model | default(deploy_cnv_vm_default_network_model) }}"
+                  name: default
+              machine:
+                type: "{{ item.machine_type | default(deploy_cnv_vm_default_machine_type) }}"
+              memory:
+                guest: "{{ item.memory | default(deploy_cnv_vm_default_memory) }}"
+              resources: {}
+            networks:
+            - name: default
+              pod: {}
+            volumes:
+            - dataVolume:
+                name: "{{ item.name }}-disk"
+              name: datavolumedisk
+            - cloudInitNoCloud:
+                userData: |
+                  #cloud-config
+                  user: {{ item.cloud_init_user | default('cloud-user') }}
+                  password: "{{ item.cloud_init_password | default('changeme') }}"
+                  chpasswd:
+                    expire: false
+                  ssh_pwauth: true
+              name: cloudinitdisk
+  loop: "{{ deploy_cnv_vm_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: r_vms_without_class
+
+- name: Create LoadBalancer services for VMs
+  when: item.ports is defined and item.ports | length > 0
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: "{{ item.name }}-lb"
+        namespace: "{{ deploy_cnv_vm_namespace }}"
+      spec:
+        type: LoadBalancer
+        selector:
+          kubevirt.io/vm: "{{ item.name }}"
+        ports: "{{ item.ports }}"
+  loop: "{{ deploy_cnv_vm_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Wait for VMs to be running
+  when: deploy_cnv_vm_wait_for_running | bool
+  kubernetes.core.k8s_info:
+    api_version: kubevirt.io/v1
+    kind: VirtualMachine
+    name: "{{ item.name }}"
+    namespace: "{{ deploy_cnv_vm_namespace }}"
+  loop: "{{ deploy_cnv_vm_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: r_vm_status
+  until: r_vm_status.resources[0].status.printableStatus | default('') == "Running"
+  retries: "{{ (deploy_cnv_vm_wait_timeout | int / deploy_cnv_vm_wait_delay | int) | int }}"
+  delay: "{{ deploy_cnv_vm_wait_delay }}"
+
+- name: Display deployed VMs
+  ansible.builtin.debug:
+    msg: "Successfully deployed VMs: {{ deploy_cnv_vm_instances | map(attribute='name') | list | join(', ') }}"

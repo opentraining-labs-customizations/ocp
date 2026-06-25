@@ -1,0 +1,53 @@
+---
+# Defaults for deploy_cnv_vm role - Combined boot PVC and VM deployment
+
+# Namespace where VMs will be deployed
+deploy_cnv_vm_namespace: "default"
+
+# List of VMs to deploy
+deploy_cnv_vm_instances: []
+# Example:
+# deploy_cnv_vm_instances:
+#   - name: rhel10-vm
+#     datasource_name: rhel10
+#     datasource_namespace: openshift-virtualization-os-images
+#     cores: 4
+#     memory: 16Gi
+#     disk_size: 100Gi
+#     cloud_init_user: lab-user
+#     cloud_init_password: password123
+#     use_boot_pvc: true  # Set to true to use pre-created PVC instead of DataSource
+#     ports:
+#       - port: 22
+#         protocol: TCP
+#         targetPort: 22
+#         name: ssh
+
+# Default values for VMs
+deploy_cnv_vm_default_cores: 4
+deploy_cnv_vm_default_memory: "16Gi"
+deploy_cnv_vm_default_disk_size: "100Gi"
+deploy_cnv_vm_default_machine_type: "pc-q35-rhel9.2.0"
+deploy_cnv_vm_default_disk_bus: "virtio"
+deploy_cnv_vm_default_network_model: "virtio"
+
+# Storage class (null = use cluster default)
+deploy_cnv_vm_storage_class: null
+
+# Wait for VM to be running
+deploy_cnv_vm_wait_for_running: true
+deploy_cnv_vm_wait_timeout: 600
+deploy_cnv_vm_wait_delay: 10
+
+# Boot source PVC management
+# Set to true to pre-create boot source PVCs in cnv-images namespace
+# This is useful when using cnv_instances workload or for caching boot images
+deploy_cnv_vm_create_boot_pvcs: false
+deploy_cnv_vm_boot_pvc_namespace: "cnv-images"
+deploy_cnv_vm_boot_pvcs: []
+# Example:
+# deploy_cnv_vm_boot_pvcs:
+#   - name: rhel10
+#     datasource_name: rhel10
+#     datasource_namespace: openshift-virtualization-os-images
+#     storage: "60Gi"
