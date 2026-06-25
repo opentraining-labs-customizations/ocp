@@ -82,6 +82,9 @@
                   ssh_pwauth: true
                   hostname: {{ item.name }}
                   fqdn: {{ item.name }}.headless.{{ deploy_cnv_vm_namespace }}.svc.cluster.local
+                  manage_etc_hosts: false
+                  runcmd:
+                    - echo "127.0.0.1 {{ item.name }}.headless.{{ deploy_cnv_vm_namespace }}.svc.cluster.local {{ item.name }}" >> /etc/hosts
               name: cloudinitdisk
   loop: "{{ deploy_cnv_vm_instances }}"
   loop_control:
@@ -160,6 +163,9 @@
                   ssh_pwauth: true
                   hostname: {{ item.name }}
                   fqdn: {{ item.name }}.headless.{{ deploy_cnv_vm_namespace }}.svc.cluster.local
+                  manage_etc_hosts: false
+                  runcmd:
+                    - echo "127.0.0.1 {{ item.name }}.headless.{{ deploy_cnv_vm_namespace }}.svc.cluster.local {{ item.name }}" >> /etc/hosts
               name: cloudinitdisk
   loop: "{{ deploy_cnv_vm_instances }}"
   loop_control:
