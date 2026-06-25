@@ -39,6 +39,9 @@ deploy_cnv_vm_wait_for_running: true
 deploy_cnv_vm_wait_timeout: 600
 deploy_cnv_vm_wait_delay: 10
 
+# Create OpenShift Routes for HTTPS access (port 443)
+deploy_cnv_vm_create_routes: true
+
 # Boot source PVC management
 # Set to true to pre-create boot source PVCs in cnv-images namespace
 # This is useful when using cnv_instances workload or for caching boot images

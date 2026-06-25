@@ -200,11 +200,52 @@
   retries: "{{ (deploy_cnv_vm_wait_timeout | int / deploy_cnv_vm_wait_delay | int) | int }}"
   delay: "{{ deploy_cnv_vm_wait_delay }}"
 
+- name: Get cluster apps domain
+  when: deploy_cnv_vm_create_routes | bool
+  kubernetes.core.k8s_info:
+    api_version: config.openshift.io/v1
+    kind: Ingress
+    name: cluster
+  register: r_ingress_config
+
+- name: Set apps domain fact
+  when: deploy_cnv_vm_create_routes | bool
+  ansible.builtin.set_fact:
+    _deploy_cnv_vm_apps_domain: "{{ r_ingress_config.resources[0].spec.domain }}"
+
+- name: Create OpenShift Routes for HTTPS VM access
+  when:
+    - deploy_cnv_vm_create_routes | bool
+    - item.ports | default([]) | selectattr('port', 'equalto', 443) | list | length > 0
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: route.openshift.io/v1
+      kind: Route
+      metadata:
+        name: "{{ item.name }}"
+        namespace: "{{ deploy_cnv_vm_namespace }}"
+        labels:
+          app: "{{ item.name }}"
+      spec:
+        host: "{{ item.name }}.{{ _deploy_cnv_vm_apps_domain }}"
+        to:
+          kind: Service
+          name: "{{ item.name }}-lb"
+        port:
+          targetPort: https
+        tls:
+          termination: passthrough
+  loop: "{{ deploy_cnv_vm_instances }}"
+  loop_control:
+    label: "{{ item.name }}"
+
 - name: Set VM facts for catalog consumption
   ansible.builtin.set_fact:
     "{{ item.name | replace('-', '_') }}_internal_fqdn": "{{ item.name }}.headless.{{ deploy_cnv_vm_namespace }}.svc.cluster.local"
     "{{ item.name | replace('-', '_') }}_vm_name": "{{ item.name }}"
     "{{ item.name | replace('-', '_') }}_namespace": "{{ deploy_cnv_vm_namespace }}"
+    "{{ item.name | replace('-', '_') }}_route_url": "https://{{ item.name }}.{{ _deploy_cnv_vm_apps_domain | default('') }}"
   loop: "{{ deploy_cnv_vm_instances }}"
   loop_control:
     label: "{{ item.name }}"
